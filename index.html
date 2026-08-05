@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>My Ledger</title>
+
+<!-- Home-screen app icon + fullscreen launch behavior -->
+<link rel="icon" type="image/png" href="data:image/png;base64,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">
+<link rel="apple-touch-icon" href="data:image/png;base64,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">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="My Ledger">
+<meta name="application-name" content="My Ledger">
+<meta name="theme-color" content="#2F6F5E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #ECEEE9;
+    --card: #F8F7F1;
+    --ink: #202A22;
+    --ink-soft: #5B6459;
+    --accent: #2F6F5E;
+    --warn: #A6465C;
+    --line: #D7D6C9;
+    --white: #FFFFFF;
+    font-size: 16px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--paper); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif;
+    -webkit-font-smoothing: antialiased; min-height: 100vh; display:flex; justify-content:center;
+  }
+  .mono{ font-family: 'Space Mono', monospace; }
+  button{ font-family: inherit; }
+  .phone{ width: 100%; max-width: 430px; min-height: 100vh; background: var(--paper); display:flex; flex-direction:column; position:relative; }
+  .banner{ background: var(--ink); color: var(--white); font-size: 12px; line-height: 1.5; padding: 10px 16px; display: none; }
+  .banner.show{ display:block; }
+  .banner.banner-warn{ background: var(--warn); }
+  .sticky-top{ position: sticky; top:0; z-index: 5; background: var(--paper); padding-top: env(safe-area-inset-top); }
+  .masthead{ background: var(--card); margin: 14px 14px 0 14px; border-radius: 14px 14px 0 0; padding: 18px 20px 22px 20px; }
+  .masthead-top{ display:flex; align-items:center; justify-content:space-between; }
+  .brand{ font-family:'Space Mono', monospace; font-weight:700; font-size: 13px; letter-spacing: 2px; color: var(--ink); }
+  .reset-btn{ background:none; border:none; color: var(--ink-soft); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding: 6px 8px; cursor:pointer; border-bottom: 1px dotted var(--ink-soft); }
+  .reset-btn:hover{ color: var(--warn); border-color: var(--warn); }
+  .sync-row{ display:flex; align-items:center; gap: 6px; margin-top: 12px; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--ink-soft); }
+  .sync-dot{ width: 7px; height:7px; border-radius:50%; background: var(--ink-soft); flex-shrink:0; }
+  .sync-dot.synced{ background: var(--accent); }
+  .sync-dot.offline{ background: var(--warn); }
+  .refresh-btn{ background:none; border:none; color: var(--ink-soft); font-size: 13px; cursor:pointer; margin-left:auto; padding:2px 4px; }
+  .masthead-period{ margin-top: 8px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--ink-soft); }
+  .masthead-total{ font-family: 'Space Mono', monospace; font-weight:700; font-size: 40px; line-height: 1.1; margin-top: 4px; color: var(--ink); }
+  .masthead-total.over{ color: var(--warn); }
+  .masthead-sub{ font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .tear{ height: 14px; margin: 0 14px; background: radial-gradient(circle at 7px 0, transparent 7px, var(--card) 7.5px) repeat-x; background-size: 14px 14px; background-position: 0 -7px; }
+  .tabs{ display:flex; margin: 0 14px; background: var(--card); border-radius: 0 0 14px 14px; padding: 6px; gap: 4px; }
+  .tab{ flex:1; border:none; background: transparent; color: var(--ink-soft); font-size: 13px; font-weight: 600; letter-spacing: 0.5px; padding: 10px 0; border-radius: 9px; cursor:pointer; min-height: 40px; }
+  .tab.active{ background: var(--accent); color: var(--white); }
+  .content{ flex:1; padding: 18px 14px 40px 14px; }
+  .card{ background: var(--card); border-radius: 14px; padding: 18px 18px 20px 18px; margin-bottom: 14px; }
+  label.field-label{ display:block; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px; margin-top: 16px; }
+  label.field-label:first-child{ margin-top:0; }
+  .amount-row{ display:flex; align-items:baseline; gap: 6px; }
+  .amount-row .sign{ font-family:'Space Mono', monospace; font-size: 28px; color: var(--ink-soft); }
+  input[type="number"], input[type="date"], input[type="text"], select{
+    width:100%; border: none; border-bottom: 2px solid var(--line); background: transparent;
+    font-family: 'Space Mono', monospace; font-size: 20px; padding: 8px 2px; color: var(--ink); min-height: 44px;
+  }
+  select{ font-size:16px; font-family:'IBM Plex Sans', sans-serif; appearance:none; -webkit-appearance:none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-soft) 50%), linear-gradient(135deg, var(--ink-soft) 50%, transparent 50%);
+    background-position: calc(100% - 16px) center, calc(100% - 10px) center; background-size: 6px 6px, 6px 6px; background-repeat: no-repeat;
+  }
+  input[type="text"]{ font-family: 'IBM Plex Sans', sans-serif; font-size:16px; }
+  input:focus, select:focus{ outline: none; border-color: var(--accent); }
+  input::placeholder{ color: var(--ink-soft); opacity: 0.6; }
+  .cat-hint{ font-size: 12px; color: var(--ink-soft); margin-top: 6px; }
+  .add-btn{
+    width:100%; margin-top: 22px; background: var(--accent); color: var(--white); border: none; border-radius: 10px;
+    padding: 15px 0; font-size: 14px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; min-height: 48px;
+  }
+  .add-btn:active{ opacity: 0.85; }
+  .section-title{ font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 10px 2px; }
+  .line-item{ display:flex; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); gap: 8px; }
+  .line-item:last-child{ border-bottom: none; }
+  .dot{ width: 8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .line-label{ font-size: 14px; color: var(--ink); white-space: nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .line-note{ font-size: 12px; color: var(--ink-soft); }
+  .leader{ flex:1; border-bottom: 2px dotted var(--line); height:0; margin: 0 2px; transform: translateY(-4px); }
+  .line-amount{ font-family:'Space Mono', monospace; font-size: 14px; font-weight:700; white-space:nowrap; }
+  .del-btn{ background:none; border:none; color: var(--ink-soft); font-size: 16px; cursor:pointer; padding: 4px 2px 4px 6px; line-height:1; }
+  .del-btn:hover{ color: var(--warn); }
+  .empty-state{ text-align:center; padding: 26px 10px; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+  .nav-row{ display:flex; align-items:center; justify-content: space-between; margin-bottom: 4px; }
+  .nav-btn{ background: none; border: none; font-size: 18px; color: var(--ink); cursor:pointer; padding: 8px 14px; min-width: 44px; min-height: 44px; }
+  .nav-title{ font-family:'Space Mono', monospace; font-weight:700; font-size: 15px; letter-spacing: 1px; text-transform: uppercase; }
+  .big-total{ font-family:'Space Mono', monospace; font-weight:700; font-size: 32px; margin: 6px 0 2px 0; }
+  .big-total.over{ color: var(--warn); }
+  .muted{ color: var(--ink-soft); font-size: 12px; }
+  .bar-row{ margin-bottom: 16px; cursor: default; }
+  .bar-row.clickable{ cursor:pointer; }
+  .bar-row:last-child{ margin-bottom:0; }
+  .bar-row-top{ display:flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; gap: 8px; }
+  .bar-row-top > span:first-child{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bar-track{ position: relative; height: 10px; background: var(--line); border-radius: 5px; overflow: visible; }
+  .bar-fill{ position:absolute; left:0; top:0; height:100%; border-radius: 5px; }
+  .bar-marker{ position:absolute; top:-3px; width: 2px; height: 16px; background: var(--ink); border-radius: 1px; }
+  .bar-delta{ font-size: 11px; margin-top: 5px; }
+  .modal-overlay{ position: fixed; inset: 0; background: rgba(32,42,34,0.45); display:flex; align-items:center; justify-content:center; z-index: 50; padding: 24px; }
+  .modal-box{ background: var(--white); border-radius: 14px; padding: 22px 20px; max-width: 340px; width: 100%; }
+  .modal-title{ font-weight: 600; font-size: 16px; margin-bottom: 8px; }
+  .modal-text{ font-size: 13px; color: var(--ink-soft); line-height:1.5; margin-bottom: 18px; }
+  .modal-actions{ display:flex; gap: 10px; }
+  .modal-actions button{ flex:1; border:none; border-radius: 9px; padding: 12px 0; font-size: 13px; font-weight:600; cursor:pointer; min-height: 44px; }
+  .modal-cancel{ background: var(--paper); color: var(--ink); }
+  .modal-confirm{ background: var(--warn); color: var(--white); }
+  .toast{
+    position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--white);
+    padding: 10px 18px; border-radius: 20px; font-size: 13px; z-index: 60; opacity: 0; transition: opacity 0.25s ease;
+    pointer-events:none; max-width: 85%; text-align:center;
+  }
+  .toast.show{ opacity: 1; }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="banner" id="banner"></div>
+  <div class="sticky-top">
+    <div class="masthead">
+      <div class="masthead-top">
+        <span class="brand">MY LEDGER</span>
+        <button class="reset-btn" id="resetBtn">Clear data</button>
+      </div>
+      <div class="sync-row">
+        <span class="sync-dot" id="syncDot"></span>
+        <span id="syncText">Connecting&hellip;</span>
+        <button class="refresh-btn" id="refreshBtn" title="Refresh now">&#8635; Refresh</button>
+      </div>
+      <div class="masthead-period" id="mastheadPeriod">&nbsp;</div>
+      <div class="masthead-total mono" id="mastheadTotal">$0.00</div>
+      <div class="masthead-sub" id="mastheadSub">&nbsp;</div>
+    </div>
+    <div class="tear"></div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="log">Log</button>
+      <button class="tab" data-tab="month">Month</button>
+      <button class="tab" data-tab="year">Year</button>
+    </nav>
+  </div>
+  <main class="content" id="content"></main>
+</div>
+<div id="modalRoot"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   SHARED BUDGET SETUP — read this before using the app
+   ------------------------------------------------------------
+   1. Go to https://console.firebase.google.com and sign in.
+   2. Click "Add project" (any name, Analytics not required).
+   3. In the left menu: Build -> Realtime Database -> Create Database.
+      Start in "test mode" for now.
+   4. On the Rules tab, set:
+        { "rules": { ".read": true, ".write": true } }
+      (Open to anyone with this exact URL — fine for a private
+      household budget, but don't reuse this database for anything
+      sensitive.)
+   5. On the Data tab, copy the URL shown at the top
+      (looks like: https://your-project-default-rtdb.firebaseio.com)
+   6. Paste it below as FIREBASE_URL, replacing the placeholder.
+   7. Send this same file to your partner's phone — once both of
+      you have the same URL pasted in, you're sharing one budget.
+   ============================================================ */
+const FIREBASE_URL = "https://budget-tracker-fb306-default-rtdb.firebaseio.com";
+
+// ---- categories & monthly budgets ----
+const CATEGORIES = [
+  {key:'groceries', label:'Groceries', color:'#B5652D', budget:800},
+  {key:'fun', label:'Fun Account', color:'#C79A3B', budget:100},
+  {key:'personal', label:'Personal Spending', color:'#7A6A53', budget:60},
+  {key:'hobbies', label:'Hobbies/Home Improvement', color:'#6B5B95', budget:250},
+  {key:'doctor', label:'Doctor Visits', color:'#2C7A7B', budget:150},
+  {key:'gifts', label:'Gift Giving', color:'#A6465C', budget:50},
+];
+const TOTAL_MONTHLY_BUDGET = CATEGORIES.reduce((s,c) => s + c.budget, 0);
+const STORAGE_KEY = 'my_ledger_cache_v1';
+const POLL_MS = 15000;
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+let expenses = [];
+let activeTab = 'log';
+let syncStatus = 'connecting';
+const today = new Date();
+let monthCursor = { y: today.getFullYear(), m: today.getMonth() };
+let yearCursor = today.getFullYear();
+
+function catInfo(key){ return CATEGORIES.find(c => c.key === key) || CATEGORIES[0]; }
+function todayISO(){
+  const y = today.getFullYear(), m = String(today.getMonth()+1).padStart(2,'0'), d = String(today.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+function parseISO(iso){ const [y,m,d] = iso.split('-').map(Number); return new Date(y, m-1, d); }
+function formatMoney(n){
+  const sign = n < 0 ? '-' : '';
+  return sign + '$' + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function formatShortDate(iso){ const d = parseISO(iso); return `${MONTH_SHORT[d.getMonth()]} ${d.getDate()}`; }
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+function escapeHTML(s){ const div = document.createElement('div'); div.textContent = s; return div.innerHTML; }
+function isConfigured(){ return FIREBASE_URL && FIREBASE_URL.indexOf('PASTE_YOUR') === -1 && FIREBASE_URL.indexOf('http') === 0; }
+function objectToArray(obj){
+  if (!obj) return [];
+  return Object.entries(obj).map(([id, v]) => ({ id, amount: v.amount, category: v.category, date: v.date, note: v.note || '', createdAt: v.createdAt || 0 }));
+}
+
+// ---------- local cache (offline fallback only — cloud is the source of truth) ----------
+function cacheLocal(){ try { localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses)); } catch(e){} }
+function loadLocalCache(){ try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; } catch(e){ return []; } }
+
+// ---------- cloud sync (Firebase Realtime Database REST) ----------
+function setSyncStatus(status){
+  syncStatus = status;
+  const dot = document.getElementById('syncDot');
+  const text = document.getElementById('syncText');
+  const banner = document.getElementById('banner');
+  dot.classList.remove('synced','offline');
+  if (status === 'synced'){
+    dot.classList.add('synced'); text.textContent = 'Synced with shared budget';
+    banner.classList.remove('show','banner-warn');
+  } else if (status === 'syncing'){
+    text.textContent = 'Syncing…';
+  } else if (status === 'offline'){
+    dot.classList.add('offline'); text.textContent = "Can't reach shared budget";
+    banner.textContent = "Can't reach your shared budget right now. New entries are saved on this phone and will sync once you're back online.";
+    banner.classList.add('show','banner-warn');
+  } else if (status === 'unconfigured'){
+    text.textContent = 'Not connected yet';
+    banner.textContent = "This copy isn't linked to a shared budget yet. Open the file and paste your Firebase database URL where it says FIREBASE_URL (see the setup notes at the top of the code). Until then, entries only save on this device.";
+    banner.classList.add('show'); banner.classList.remove('banner-warn');
+  } else {
+    text.textContent = 'Connecting…';
+  }
+}
+
+async function remoteFetch(){
+  const res = await fetch(`${FIREBASE_URL}/expenses.json`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('fetch failed');
+  return await res.json();
+}
+async function remotePatch(body){
+  const res = await fetch(`${FIREBASE_URL}/expenses.json`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error('patch failed');
+}
+async function remoteReplaceAll(body){
+  const res = await fetch(`${FIREBASE_URL}/expenses.json`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error('put failed');
+}
+
+async function syncPull(showFailToast){
+  if (!isConfigured()) { setSyncStatus('unconfigured'); return; }
+  try {
+    setSyncStatus('syncing');
+    const data = await remoteFetch();
+    expenses = objectToArray(data);
+    cacheLocal();
+    setSyncStatus('synced');
+    render();
+  } catch (e) {
+    setSyncStatus('offline');
+    if (showFailToast) showToast("Couldn't reach the shared budget — showing last synced copy");
+  }
+}
+
+// ---------- modal ----------
+function openModal({title, text, confirmLabel, onConfirm}){
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = `
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal-box">
+        <div class="modal-title">${title}</div>
+        <div class="modal-text">${text}</div>
+        <div class="modal-actions">
+          <button class="modal-cancel" id="modalCancel">Cancel</button>
+          <button class="modal-confirm" id="modalConfirm">${confirmLabel}</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('modalCancel').onclick = () => root.innerHTML = '';
+  document.getElementById('modalOverlay').onclick = (e) => { if (e.target.id === 'modalOverlay') root.innerHTML = ''; };
+  document.getElementById('modalConfirm').onclick = () => { root.innerHTML = ''; onConfirm(); };
+}
+
+// ---------- reusable budget bar ----------
+function budgetBarHTML(label, spent, budget, clickable, jumpAttr){
+  const over = spent > budget;
+  const trackMax = Math.max(spent, budget, 1);
+  const fillPct = Math.min(100, Math.round(spent / trackMax * 100));
+  const markerPct = Math.min(100, Math.round(budget / trackMax * 100));
+  const fillColor = over ? 'var(--warn)' : 'var(--accent)';
+  const deltaText = over ? `${formatMoney(spent - budget)} over budget` : `${formatMoney(budget - spent)} left`;
+  const deltaColor = over ? 'var(--warn)' : 'var(--ink-soft)';
+  return `
+    <div class="bar-row${clickable ? ' clickable' : ''}"${jumpAttr ? ` ${jumpAttr}` : ''}>
+      <div class="bar-row-top">
+        <span>${label}</span>
+        <span class="mono">${formatMoney(spent)} <span style="color:var(--ink-soft)">/ ${formatMoney(budget)}</span></span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${fillPct}%; background:${fillColor}"></div>
+        <div class="bar-marker" style="left:${markerPct}%"></div>
+      </div>
+      <div class="bar-delta" style="color:${deltaColor}">${deltaText}</div>
+    </div>`;
+}
+
+// ---------- masthead ----------
+function renderMasthead(){
+  const now = new Date();
+  const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const total = expenses.filter(e => e.date.startsWith(ym)).reduce((s,e) => s + e.amount, 0);
+  const over = total > TOTAL_MONTHLY_BUDGET;
+  document.getElementById('mastheadPeriod').textContent = `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
+  const totalEl = document.getElementById('mastheadTotal');
+  totalEl.textContent = formatMoney(total);
+  totalEl.classList.toggle('over', over);
+  document.getElementById('mastheadSub').textContent = over
+    ? `${formatMoney(total - TOTAL_MONTHLY_BUDGET)} over this month's ${formatMoney(TOTAL_MONTHLY_BUDGET)} budget`
+    : `${formatMoney(TOTAL_MONTHLY_BUDGET - total)} left of ${formatMoney(TOTAL_MONTHLY_BUDGET)} budget this month`;
+}
+
+// ---------- LOG tab ----------
+function renderLog(){
+  const todaysEntries = expenses.filter(e => e.date === todayISO()).sort((a,b) => b.createdAt - a.createdAt);
+  const options = CATEGORIES.map(c => `<option value="${c.key}">${c.label}</option>`).join('');
+  const list = todaysEntries.length ? todaysEntries.map(e => lineItemHTML(e, true)).join('') :
+    `<div class="empty-state">Nothing logged today yet.<br>Add your first expense above.</div>`;
+
+  return `
+    <div class="card">
+      <label class="field-label" for="amountInput">Amount</label>
+      <div class="amount-row">
+        <span class="sign mono">$</span>
+        <input type="number" id="amountInput" inputmode="decimal" step="0.01" min="0" placeholder="0.00">
+      </div>
+      <label class="field-label" for="categorySelect">Category</label>
+      <select id="categorySelect">${options}</select>
+      <div class="cat-hint" id="catHint"></div>
+      <label class="field-label" for="dateInput">Date</label>
+      <input type="date" id="dateInput" value="${todayISO()}">
+      <label class="field-label" for="noteInput">Note <span style="text-transform:none;letter-spacing:0;">(optional)</span></label>
+      <input type="text" id="noteInput" placeholder="e.g. coffee with Sam">
+      <button class="add-btn" id="addBtn">+ Add to ledger</button>
+    </div>
+    <div class="section-title">Today</div>
+    <div class="card">${list}</div>
+  `;
+}
+
+function lineItemHTML(e, showDelete){
+  const c = catInfo(e.category);
+  return `
+    <div class="line-item">
+      <span class="dot" style="background:${c.color}"></span>
+      <span class="line-label">${c.label}${e.note ? `<span class="line-note"> — ${escapeHTML(e.note)}</span>` : ''}</span>
+      <span class="leader"></span>
+      <span class="line-amount mono">${formatMoney(e.amount)}</span>
+      ${showDelete ? `<button class="del-btn" data-del="${e.id}">&times;</button>` : ''}
+    </div>`;
+}
+
+function updateCatHint(){
+  const key = document.getElementById('categorySelect').value;
+  const c = catInfo(key);
+  const nowYm = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+  const spent = expenses.filter(e => e.category === key && e.date.startsWith(nowYm)).reduce((s,e) => s + e.amount, 0);
+  document.getElementById('catHint').textContent = `${c.label}: ${formatMoney(spent)} of ${formatMoney(c.budget)} spent this month`;
+}
+
+function attachLogHandlers(){
+  document.getElementById('categorySelect').onchange = updateCatHint;
+  updateCatHint();
+  document.getElementById('addBtn').onclick = async () => {
+    const amountEl = document.getElementById('amountInput');
+    const amount = parseFloat(amountEl.value);
+    const category = document.getElementById('categorySelect').value;
+    const date = document.getElementById('dateInput').value || todayISO();
+    const note = document.getElementById('noteInput').value.trim();
+    if (!amount || amount <= 0) {
+      amountEl.style.borderColor = 'var(--warn)';
+      showToast('Enter an amount greater than $0');
+      return;
+    }
+    const exp = { id: 'e' + Date.now() + Math.random().toString(36).slice(2,7), amount, category, date, note, createdAt: Date.now() };
+    expenses.push(exp);
+    cacheLocal();
+    render();
+    showToast('Added to ledger');
+    if (!isConfigured()) { setSyncStatus('unconfigured'); return; }
+    try {
+      setSyncStatus('syncing');
+      await remotePatch({ [exp.id]: { amount: exp.amount, category: exp.category, date: exp.date, note: exp.note, createdAt: exp.createdAt } });
+      setSyncStatus('synced');
+    } catch (e2) {
+      setSyncStatus('offline');
+      showToast("Saved on this phone — will sync once you're back online");
+    }
+  };
+  attachDeleteHandlers();
+}
+
+function attachDeleteHandlers(){
+  document.querySelectorAll('[data-del]').forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.getAttribute('data-del');
+      openModal({
+        title: 'Remove this entry?',
+        text: "This removes the expense from the shared budget for both of you. This can't be undone.",
+        confirmLabel: 'Remove',
+        onConfirm: async () => {
+          expenses = expenses.filter(e => e.id !== id);
+          cacheLocal();
+          render();
+          showToast('Entry removed');
+          if (!isConfigured()) { setSyncStatus('unconfigured'); return; }
+          try {
+            setSyncStatus('syncing');
+            await remotePatch({ [id]: null });
+            setSyncStatus('synced');
+          } catch (e2) {
+            setSyncStatus('offline');
+            showToast("Removed on this phone — will sync once you're back online");
+          }
+        }
+      });
+    };
+  });
+}
+
+// ---------- MONTH tab ----------
+function renderMonth(){
+  const { y, m } = monthCursor;
+  const ym = `${y}-${String(m+1).padStart(2,'0')}`;
+  const entries = expenses.filter(e => e.date.startsWith(ym)).sort((a,b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.createdAt - a.createdAt));
+  const total = entries.reduce((s,e) => s + e.amount, 0);
+
+  const byCat = {};
+  entries.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
+
+  const catHTML = CATEGORIES.map(c => budgetBarHTML(c.label, byCat[c.key] || 0, c.budget)).join('');
+
+  const entriesHTML = entries.length ? entries.map(e => `
+    <div class="line-item">
+      <span class="dot" style="background:${catInfo(e.category).color}"></span>
+      <span class="line-label mono" style="font-size:12px;color:var(--ink-soft);">${formatShortDate(e.date)}</span>
+      <span class="line-label">${catInfo(e.category).label}</span>
+      <span class="leader"></span>
+      <span class="line-amount mono">${formatMoney(e.amount)}</span>
+      <button class="del-btn" data-del="${e.id}">&times;</button>
+    </div>`).join('') : `<div class="empty-state">No entries yet.</div>`;
+
+  return `
+    <div class="card">
+      <div class="nav-row">
+        <button class="nav-btn" id="monthPrev">&lsaquo;</button>
+        <span class="nav-title">${MONTH_NAMES[m]} ${y}</span>
+        <button class="nav-btn" id="monthNext">&rsaquo;</button>
+      </div>
+      ${budgetBarHTML('Total spent', total, TOTAL_MONTHLY_BUDGET)}
+    </div>
+    <div class="section-title">By category vs. budget</div>
+    <div class="card">${catHTML}</div>
+    <div class="section-title">Entries</div>
+    <div class="card">${entriesHTML}</div>
+  `;
+}
+
+function attachMonthHandlers(){
+  document.getElementById('monthPrev').onclick = () => {
+    monthCursor.m--; if (monthCursor.m < 0) { monthCursor.m = 11; monthCursor.y--; }
+    render();
+  };
+  document.getElementById('monthNext').onclick = () => {
+    monthCursor.m++; if (monthCursor.m > 11) { monthCursor.m = 0; monthCursor.y++; }
+    render();
+  };
+  attachDeleteHandlers();
+}
+
+// ---------- YEAR tab ----------
+function renderYear(){
+  const y = yearCursor;
+  const entries = expenses.filter(e => e.date.startsWith(String(y)));
+  const total = entries.reduce((s,e) => s + e.amount, 0);
+  const annualBudget = TOTAL_MONTHLY_BUDGET * 12;
+
+  const byMonth = new Array(12).fill(0);
+  entries.forEach(e => { const mo = parseInt(e.date.slice(5,7),10) - 1; byMonth[mo] += e.amount; });
+
+  const monthHTML = byMonth.map((amt, i) =>
+    budgetBarHTML(MONTH_SHORT[i], amt, TOTAL_MONTHLY_BUDGET, true, `data-jump-month="${i}"`)
+  ).join('');
+
+  const byCat = {};
+  entries.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
+  const catHTML = CATEGORIES.map(c => budgetBarHTML(c.label, byCat[c.key] || 0, c.budget * 12)).join('');
+
+  return `
+    <div class="card">
+      <div class="nav-row">
+        <button class="nav-btn" id="yearPrev">&lsaquo;</button>
+        <span class="nav-title">${y}</span>
+        <button class="nav-btn" id="yearNext">&rsaquo;</button>
+      </div>
+      ${budgetBarHTML('Total spent this year', total, annualBudget)}
+    </div>
+    <div class="section-title">By month <span style="text-transform:none;letter-spacing:0;">(tap to view — line marks the ${formatMoney(TOTAL_MONTHLY_BUDGET)} monthly budget)</span></div>
+    <div class="card">${monthHTML}</div>
+    <div class="section-title">By category vs. annual budget</div>
+    <div class="card">${catHTML}</div>
+  `;
+}
+
+function attachYearHandlers(){
+  document.getElementById('yearPrev').onclick = () => { yearCursor--; render(); };
+  document.getElementById('yearNext').onclick = () => { yearCursor++; render(); };
+  document.querySelectorAll('[data-jump-month]').forEach(row => {
+    row.onclick = () => {
+      monthCursor = { y: yearCursor, m: parseInt(row.getAttribute('data-jump-month'), 10) };
+      activeTab = 'month';
+      render();
+    };
+  });
+}
+
+// ---------- main render ----------
+function render(){
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === activeTab));
+  const content = document.getElementById('content');
+  if (activeTab === 'log') { content.innerHTML = renderLog(); attachLogHandlers(); }
+  else if (activeTab === 'month') { content.innerHTML = renderMonth(); attachMonthHandlers(); }
+  else { content.innerHTML = renderYear(); attachYearHandlers(); }
+  renderMasthead();
+}
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => { activeTab = t.dataset.tab; render(); });
+});
+
+document.getElementById('refreshBtn').onclick = () => syncPull(true);
+
+document.getElementById('resetBtn').onclick = () => {
+  openModal({
+    title: 'Clear the shared budget?',
+    text: "This deletes every expense either of you has logged — for both phones, permanently. This can't be undone.",
+    confirmLabel: 'Clear everything',
+    onConfirm: async () => {
+      expenses = [];
+      cacheLocal();
+      render();
+      showToast('Ledger cleared');
+      if (!isConfigured()) { setSyncStatus('unconfigured'); return; }
+      try { await remoteReplaceAll(null); setSyncStatus('synced'); }
+      catch (e) { setSyncStatus('offline'); showToast('Cleared here — will sync once online'); }
+    }
+  });
+};
+
+(async function init(){
+  expenses = loadLocalCache();
+  render();
+  await syncPull(false);
+  if (isConfigured()) {
+    setInterval(() => syncPull(false), POLL_MS);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) syncPull(false); });
+  }
+})();
+</script>
+</body>
+</html>
