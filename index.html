@@ -110,6 +110,13 @@
   .bar-fill{ position:absolute; left:0; top:0; height:100%; border-radius: 5px; }
   .bar-marker{ position:absolute; top:-3px; width: 2px; height: 16px; background: var(--ink); border-radius: 1px; }
   .bar-delta{ font-size: 11px; margin-top: 5px; }
+  .pool-row{ padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .pool-row:last-child{ border-bottom: none; }
+  .pool-row-top{ display:flex; align-items:center; gap: 8px; }
+  .pool-label{ flex:1; font-size: 14px; }
+  .pool-balance{ font-size: 16px; font-weight: 700; }
+  .pool-detail{ display:flex; justify-content: space-between; font-size: 12px; color: var(--ink-soft); margin-top: 6px; margin-left: 16px; }
+  .pool-net{ font-size: 11px; margin-top: 4px; margin-left: 16px; color: var(--ink-soft); }
   .modal-overlay{ position: fixed; inset: 0; background: rgba(32,42,34,0.45); display:flex; align-items:center; justify-content:center; z-index: 50; padding: 24px; }
   .modal-box{ background: var(--white); border-radius: 14px; padding: 22px 20px; max-width: 340px; width: 100%; }
   .modal-title{ font-weight: 600; font-size: 16px; margin-bottom: 8px; }
@@ -133,7 +140,10 @@
     <div class="masthead">
       <div class="masthead-top">
         <span class="brand">BUDGET TRACKER</span>
-        <button class="reset-btn" id="resetBtn">Clear data</button>
+        <div style="display:flex; gap:14px; align-items:center;">
+          <button class="reset-btn" id="backupBtn">Backup</button>
+          <button class="reset-btn" id="resetBtn">Clear data</button>
+        </div>
       </div>
       <div class="sync-row">
         <span class="sync-dot" id="syncDot"></span>
@@ -179,14 +189,23 @@ const FIREBASE_URL = "https://budget-tracker-fb306-default-rtdb.firebaseio.com";
 
 // ---- categories & monthly budgets ----
 const CATEGORIES = [
-  {key:'groceries', label:'Groceries', color:'#B5652D', budget:800},
-  {key:'fun', label:'Fun Account', color:'#C79A3B', budget:100},
-  {key:'personal', label:'Personal Spending', color:'#7A6A53', budget:60},
-  {key:'hobbies', label:'Hobbies/Home Improvement', color:'#6B5B95', budget:250},
-  {key:'doctor', label:'Doctor Visits', color:'#2C7A7B', budget:150},
-  {key:'gifts', label:'Gift Giving', color:'#A6465C', budget:50},
+  {key:'groceries', label:'Groceries', color:'#B5652D', type:'budget', budget:800},
+  {key:'fun', label:'Fun Account', color:'#C79A3B', type:'budget', budget:100},
+  {key:'personal_l', label:'L — Personal Spending', color:'#7A6A53', type:'budget', budget:30},
+  {key:'personal_j', label:'J — Personal Spending', color:'#B08D57', type:'budget', budget:30},
+  {key:'hobbies', label:'Hobbies/Home Improvement', color:'#6B5B95', type:'budget', budget:250},
+  {key:'doctor', label:'Doctor Visits', color:'#2C7A7B', type:'budget', budget:150},
+  {key:'gifts', label:'Gift Giving', color:'#A6465C', type:'budget', budget:50},
+  {key:'car', label:'Car', color:'#3E6E8E', type:'pool', startingBalance:6500, monthlyContribution:250, poolAnchorYM:'2026-09'},
+  {key:'house', label:'House Maintenance', color:'#4C7A5D', type:'pool', startingBalance:4750, monthlyContribution:300, poolAnchorYM:'2026-09'},
 ];
-const TOTAL_MONTHLY_BUDGET = CATEGORIES.reduce((s,c) => s + c.budget, 0);
+// Kept only so any expenses already logged under the old single "Personal Spending"
+// category still display correctly. Not selectable for new entries.
+const LEGACY_CATEGORIES = [
+  {key:'personal', label:'Personal Spending (old)', color:'#8C7B63', type:'legacy'},
+];
+const ALL_CATEGORIES = CATEGORIES.concat(LEGACY_CATEGORIES);
+const TOTAL_MONTHLY_BUDGET = CATEGORIES.filter(c => c.type === 'budget').reduce((s,c) => s + c.budget, 0);
 const STORAGE_KEY = 'my_ledger_cache_v1';
 const POLL_MS = 15000;
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -199,7 +218,27 @@ const today = new Date();
 let monthCursor = { y: today.getFullYear(), m: today.getMonth() };
 let yearCursor = today.getFullYear();
 
-function catInfo(key){ return CATEGORIES.find(c => c.key === key) || CATEGORIES[0]; }
+function catInfo(key){ return ALL_CATEGORIES.find(c => c.key === key) || CATEGORIES[0]; }
+function isPoolCategory(key){ const c = catInfo(key); return !!c && c.type === 'pool'; }
+function currentYM(){ return `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`; }
+function monthsBetweenInclusive(fromYM, toYM){
+  const [fy,fm] = fromYM.split('-').map(Number);
+  const [ty,tm] = toYM.split('-').map(Number);
+  return (ty*12+tm) - (fy*12+fm) + 1;
+}
+function poolContributionsThrough(cat, throughYM){
+  if (throughYM < cat.poolAnchorYM) return 0;
+  return monthsBetweenInclusive(cat.poolAnchorYM, throughYM) * cat.monthlyContribution;
+}
+function poolExpensesThrough(cat, throughYM){
+  return expenses.filter(e => e.category === cat.key && e.date.slice(0,7) <= throughYM).reduce((s,e) => s + e.amount, 0);
+}
+function poolBalanceThrough(cat, throughYM){
+  return cat.startingBalance + poolContributionsThrough(cat, throughYM) - poolExpensesThrough(cat, throughYM);
+}
+function poolContributionForMonth(cat, ym){
+  return ym >= cat.poolAnchorYM ? cat.monthlyContribution : 0;
+}
 function todayISO(){
   const y = today.getFullYear(), m = String(today.getMonth()+1).padStart(2,'0'), d = String(today.getDate()).padStart(2,'0');
   return `${y}-${m}-${d}`;
@@ -328,11 +367,31 @@ function budgetBarHTML(label, spent, budget, clickable, jumpAttr){
     </div>`;
 }
 
+// ---------- savings pool card (Car / House Maintenance) ----------
+function poolCardHTML(cat, spent, contribution, balanceEnd){
+  const net = contribution - spent;
+  const netText = net >= 0 ? `${formatMoney(net)} added to savings` : `${formatMoney(Math.abs(net))} drawn from savings`;
+  const netColor = net >= 0 ? 'var(--accent)' : 'var(--ink-soft)';
+  return `
+    <div class="pool-row">
+      <div class="pool-row-top">
+        <span class="dot" style="background:${cat.color}"></span>
+        <span class="pool-label">${cat.label}</span>
+        <span class="pool-balance mono">${formatMoney(balanceEnd)}</span>
+      </div>
+      <div class="pool-detail">
+        <span>${contribution > 0 ? `+${formatMoney(contribution)} added` : 'not started yet'}</span>
+        <span>${formatMoney(spent)} spent</span>
+      </div>
+      <div class="pool-net" style="color:${netColor}">${netText}</div>
+    </div>`;
+}
+
 // ---------- masthead ----------
 function renderMasthead(){
   const now = new Date();
   const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  const total = expenses.filter(e => e.date.startsWith(ym)).reduce((s,e) => s + e.amount, 0);
+  const total = expenses.filter(e => e.date.startsWith(ym) && !isPoolCategory(e.category)).reduce((s,e) => s + e.amount, 0);
   const over = total > TOTAL_MONTHLY_BUDGET;
   document.getElementById('mastheadPeriod').textContent = `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
   const totalEl = document.getElementById('mastheadTotal');
@@ -386,9 +445,14 @@ function lineItemHTML(e, showDelete){
 function updateCatHint(){
   const key = document.getElementById('categorySelect').value;
   const c = catInfo(key);
-  const nowYm = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
-  const spent = expenses.filter(e => e.category === key && e.date.startsWith(nowYm)).reduce((s,e) => s + e.amount, 0);
-  document.getElementById('catHint').textContent = `${c.label}: ${formatMoney(spent)} of ${formatMoney(c.budget)} spent this month`;
+  const nowYm = currentYM();
+  if (c.type === 'pool'){
+    const balance = poolBalanceThrough(c, nowYm);
+    document.getElementById('catHint').textContent = `${c.label} pool: ${formatMoney(balance)} available`;
+  } else {
+    const spent = expenses.filter(e => e.category === key && e.date.startsWith(nowYm)).reduce((s,e) => s + e.amount, 0);
+    document.getElementById('catHint').textContent = `${c.label}: ${formatMoney(spent)} of ${formatMoney(c.budget)} spent this month`;
+  }
 }
 
 function attachLogHandlers(){
@@ -456,12 +520,21 @@ function renderMonth(){
   const { y, m } = monthCursor;
   const ym = `${y}-${String(m+1).padStart(2,'0')}`;
   const entries = expenses.filter(e => e.date.startsWith(ym)).sort((a,b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.createdAt - a.createdAt));
-  const total = entries.reduce((s,e) => s + e.amount, 0);
 
   const byCat = {};
   entries.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
 
-  const catHTML = CATEGORIES.map(c => budgetBarHTML(c.label, byCat[c.key] || 0, c.budget)).join('');
+  const budgetCats = CATEGORIES.filter(c => c.type === 'budget');
+  const poolCats = CATEGORIES.filter(c => c.type === 'pool');
+  const total = budgetCats.reduce((s,c) => s + (byCat[c.key] || 0), 0);
+
+  const catHTML = budgetCats.map(c => budgetBarHTML(c.label, byCat[c.key] || 0, c.budget)).join('');
+  const poolHTML = poolCats.map(c => {
+    const spent = byCat[c.key] || 0;
+    const contribution = poolContributionForMonth(c, ym);
+    const balanceEnd = poolBalanceThrough(c, ym);
+    return poolCardHTML(c, spent, contribution, balanceEnd);
+  }).join('');
 
   const entriesHTML = entries.length ? entries.map(e => `
     <div class="line-item">
@@ -484,6 +557,8 @@ function renderMonth(){
     </div>
     <div class="section-title">By category vs. budget</div>
     <div class="card">${catHTML}</div>
+    <div class="section-title">Savings pools</div>
+    <div class="card">${poolHTML}</div>
     <div class="section-title">Entries</div>
     <div class="card">${entriesHTML}</div>
   `;
@@ -505,19 +580,39 @@ function attachMonthHandlers(){
 function renderYear(){
   const y = yearCursor;
   const entries = expenses.filter(e => e.date.startsWith(String(y)));
-  const total = entries.reduce((s,e) => s + e.amount, 0);
+  const budgetCats = CATEGORIES.filter(c => c.type === 'budget');
+  const poolCats = CATEGORIES.filter(c => c.type === 'pool');
   const annualBudget = TOTAL_MONTHLY_BUDGET * 12;
 
+  const byCat = {};
+  entries.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
+  const total = budgetCats.reduce((s,c) => s + (byCat[c.key] || 0), 0);
+
   const byMonth = new Array(12).fill(0);
-  entries.forEach(e => { const mo = parseInt(e.date.slice(5,7),10) - 1; byMonth[mo] += e.amount; });
+  entries.forEach(e => {
+    if (isPoolCategory(e.category)) return;
+    const mo = parseInt(e.date.slice(5,7),10) - 1;
+    byMonth[mo] += e.amount;
+  });
 
   const monthHTML = byMonth.map((amt, i) =>
     budgetBarHTML(MONTH_SHORT[i], amt, TOTAL_MONTHLY_BUDGET, true, `data-jump-month="${i}"`)
   ).join('');
 
-  const byCat = {};
-  entries.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
-  const catHTML = CATEGORIES.map(c => budgetBarHTML(c.label, byCat[c.key] || 0, c.budget * 12)).join('');
+  const catHTML = budgetCats.map(c => budgetBarHTML(c.label, byCat[c.key] || 0, c.budget * 12)).join('');
+
+  // Pool balance "as of": today for the current year, Dec 31 for a past year, year-end projection for a future year
+  const ymEnd = y < today.getFullYear() ? `${y}-12` : (y === today.getFullYear() ? currentYM() : `${y}-12`);
+  const ymPrevEnd = `${y-1}-12`;
+  const poolHTML = poolCats.map(c => {
+    const spent = byCat[c.key] || 0;
+    const contribution = poolContributionsThrough(c, ymEnd) - poolContributionsThrough(c, ymPrevEnd);
+    const balanceEnd = poolBalanceThrough(c, ymEnd);
+    return poolCardHTML(c, spent, contribution, balanceEnd);
+  }).join('');
+  const poolNote = yearCursor > today.getFullYear()
+    ? 'Balances for a future year are a projection based on your monthly contributions.'
+    : 'Balance shown is as of today.';
 
   return `
     <div class="card">
@@ -532,6 +627,8 @@ function renderYear(){
     <div class="card">${monthHTML}</div>
     <div class="section-title">By category vs. annual budget</div>
     <div class="card">${catHTML}</div>
+    <div class="section-title">Savings pools <span style="text-transform:none;letter-spacing:0;">(${poolNote})</span></div>
+    <div class="card">${poolHTML}</div>
   `;
 }
 
@@ -562,6 +659,21 @@ document.querySelectorAll('.tab').forEach(t => {
 });
 
 document.getElementById('refreshBtn').onclick = () => syncPull(true);
+
+function exportBackup(){
+  const payload = { exportedAt: new Date().toISOString(), categories: CATEGORIES, expenses };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `budget-backup-${todayISO()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Backup downloaded');
+}
+document.getElementById('backupBtn').onclick = exportBackup;
 
 document.getElementById('resetBtn').onclick = () => {
   openModal({
