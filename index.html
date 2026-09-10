@@ -66,6 +66,7 @@
   .headline{ margin-top: 12px; }
   .headline-num{ font-family:'JetBrains Mono', monospace; font-weight:700; font-size: 30px; line-height:1.1; }
   .headline-sub{ font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .done-today{ font-size: 12px; font-weight: 600; color: #4F7A4A; white-space: nowrap; flex-shrink:0; }
   .due-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; vertical-align:middle; flex-shrink:0; }
   .chip-group-label{ flex-basis: 100%; width:100%; font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--ink-soft); margin: 4px 0 0 2px; }
   .my-tasks-card{ background: var(--card); border-radius: 12px; padding: 12px 16px; margin: 10px 14px; }
@@ -253,9 +254,11 @@ function firstVisibleDept(){
   const d = DEPARTMENTS.find(isDeptVisible);
   return d ? d.key : 'overview';
 }
-const APP_VERSION = '5';
+const APP_VERSION = '8';
 const STORAGE_KEY = 'shop_floor_log_cache_v1';
 const IDENTITY_KEY = 'shop_floor_log_identity_v1';
+const PENDING_KEY = 'shop_floor_log_pending_v1';
+let pendingOps = [];
 const TEAM = ['Luke H','Mike B','Jim W','Eric B','David D','Donnie E','KP','Shawn K','Willie J'];
 const POLL_MS = 15000;
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -270,18 +273,21 @@ let expandedMaintId = null;
 let activeDept = DEPARTMENTS[0].key;
 let currentUser = null;
 let qcSearch = '';
-const today = new Date();
 let overviewPeriod = 'month';
-let overviewMonthCursor = { y: today.getFullYear(), m: today.getMonth() };
-let overviewYearCursor = today.getFullYear();
+let overviewMonthCursor = { y: new Date().getFullYear(), m: new Date().getMonth() };
+let overviewYearCursor = new Date().getFullYear();
 let expandedDept = null;
 let expandedIssueId = null;
 
+// Always read the real clock. This used to be captured once when the page loaded,
+// which meant a phone left on the app for days kept reporting the day it was opened —
+// and stamped completions with that old date.
 function todayISO(){
-  const y = today.getFullYear(), m = String(today.getMonth()+1).padStart(2,'0'), d = String(today.getDate()).padStart(2,'0');
+  const now = new Date();
+  const y = now.getFullYear(), m = String(now.getMonth()+1).padStart(2,'0'), d = String(now.getDate()).padStart(2,'0');
   return `${y}-${m}-${d}`;
 }
-function currentYM(){ return `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`; }
+function currentYM(){ const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`; }
 function parseISO(iso){ const [y,m,d] = iso.split('-').map(Number); return new Date(y, m-1, d); }
 function formatShortDate(iso){ const d = parseISO(iso); return `${MONTH_SHORT[d.getMonth()]} ${d.getDate()}`; }
 function daysBetween(startISO, endISO){ return Math.round((parseISO(endISO) - parseISO(startISO)) / 86400000); }
@@ -332,34 +338,40 @@ function scheduleLabel(item){
   if (item.scheduleType === 'monthly') return `${OCCURRENCE_LABELS[item.monthlyOccurrence] || '1st'} ${wd} of every month`;
   return item.weekInterval === 1 ? `Every ${wd}` : `Every ${item.weekInterval} weeks (${wd})`;
 }
-function nextDueISO(item){
-  const logs = maintenanceLogs.filter(l => l.itemId === item.id);
-  const lastDate = logs.length ? logs.reduce((max, l) => (l.date > max ? l.date : max), logs[0].date) : null;
-  const searchFrom = lastDate ? addDaysISO(lastDate, 1) : item.startDate;
-
-  // legacy fallback for any item created before weekday-based scheduling existed
-  if (!item.scheduleType) return lastDate ? addDaysISO(lastDate, item.intervalDays) : item.startDate;
-
-  if (item.scheduleType === 'weekly') {
-    const anchor = computeAnchor(item);
-    let d = parseISO(searchFrom < anchor ? anchor : searchFrom);
-    while (true) {
-      if (d.getDay() === item.weekday) {
-        const weeksSinceAnchor = Math.round(daysBetween(anchor, isoOfDate(d)) / 7);
-        if (weeksSinceAnchor >= 0 && weeksSinceAnchor % item.weekInterval === 0) return isoOfDate(d);
-      }
-      d.setDate(d.getDate()+1);
-    }
-  }
-  // monthly
-  let d = parseISO(searchFrom);
-  let year = d.getFullYear(), month = d.getMonth();
+// The occurrence that follows a given one — anchor + N weeks, or the same slot next month.
+function occurrenceAfter(item, occISO){
+  if (item.scheduleType === 'weekly') return addDaysISO(occISO, 7 * (item.weekInterval || 1));
+  const d = parseISO(occISO);
+  let year = d.getFullYear(), month = d.getMonth() + 1;
+  if (month > 11) { month = 0; year++; }
   for (let i = 0; i < 24; i++) {
     const occ = nthWeekdayOfMonth(year, month, item.weekday, item.monthlyOccurrence);
-    if (occ) { const occISO = isoOfDate(occ); if (occISO >= searchFrom) return occISO; }
+    if (occ) return isoOfDate(occ);
     month++; if (month > 11) { month = 0; year++; }
   }
-  return searchFrom;
+  return addDaysISO(occISO, 28);
+}
+// Due dates sit on fixed calendar slots (e.g. the 3rd Thursday), not on "last done + N".
+// Each completion clears one slot: done early still clears this month's, done late clears
+// the one that had already come around, and slots passed with no completion are missed.
+function nextDueISO(item){
+  const done = maintenanceLogs.filter(l => l.itemId === item.id).map(l => l.date).sort();
+
+  // legacy fallback for any item created before weekday-based scheduling existed
+  if (!item.scheduleType) {
+    const lastDate = done.length ? done[done.length-1] : null;
+    return lastDate ? addDaysISO(lastDate, item.intervalDays || 7) : item.startDate;
+  }
+
+  let due = computeAnchor(item);
+  let cleared = null;
+  for (const c of done) {
+    if (cleared && c <= cleared) continue; // a second tap inside the same cycle
+    let next = occurrenceAfter(item, due);
+    while (c >= next) { cleared = due; due = next; next = occurrenceAfter(item, due); }
+    cleared = due; due = next;
+  }
+  return due;
 }
 function escapeHTML(s){ const div = document.createElement('div'); div.textContent = s == null ? '' : s; return div.innerHTML; }
 function showToast(msg){
@@ -388,6 +400,7 @@ function clearIdentity(){ try { localStorage.removeItem(IDENTITY_KEY); } catch(e
 
 // ---------- cloud sync (Firebase Realtime Database REST) ----------
 function setSyncStatus(status){
+  if (status === 'offline' && pendingOps.length) status = 'pending';
   const dot = document.getElementById('syncDot');
   const text = document.getElementById('syncText');
   const banner = document.getElementById('banner');
@@ -400,6 +413,11 @@ function setSyncStatus(status){
   } else if (status === 'offline'){
     dot.classList.add('offline'); text.textContent = "Offline";
     banner.textContent = "Can't reach the shared log right now. New entries are saved on this device and will sync once you're back online.";
+    banner.classList.add('show','banner-warn');
+  } else if (status === 'pending'){
+    dot.classList.add('offline');
+    text.textContent = `${pendingOps.length} change${pendingOps.length===1?'':'s'} waiting`;
+    banner.textContent = "Some changes haven't reached the shared log yet. They're saved on this device and will send as soon as it reconnects — don't clear the app.";
     banner.classList.add('show','banner-warn');
   } else if (status === 'unconfigured'){
     text.textContent = 'Not connected';
@@ -414,9 +432,28 @@ async function remoteFetchPath(path){
   if (!res.ok) throw new Error('fetch failed');
   return await res.json();
 }
-async function remotePatchPath(path, body){
+async function rawPatch(path, body){
   const res = await fetch(`${FIREBASE_URL}/${path}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   if (!res.ok) throw new Error('patch failed');
+}
+// Writes that don't reach Firebase are held here (and on disk) until they do.
+// Without this, a save that failed was simply lost the next time the app polled.
+function loadPending(){ try { pendingOps = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); } catch(e){ pendingOps = []; } }
+function savePending(){ try { localStorage.setItem(PENDING_KEY, JSON.stringify(pendingOps)); } catch(e){} }
+async function flushPending(){
+  if (!pendingOps.length) return true;
+  if (!isConfigured()) return false;
+  while (pendingOps.length){
+    try { await rawPatch(pendingOps[0].path, pendingOps[0].body); }
+    catch (e) { return false; }
+    pendingOps.shift(); savePending();
+  }
+  return true;
+}
+async function remotePatchPath(path, body){
+  pendingOps.push({ path, body }); savePending();
+  const delivered = await flushPending();
+  if (!delivered) throw new Error('held for retry');
 }
 async function remoteReplacePath(path, body){
   const res = await fetch(`${FIREBASE_URL}/${path}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -426,10 +463,17 @@ async function syncPull(showFailToast){
   if (!isConfigured()) { setSyncStatus('unconfigured'); return; }
   try {
     setSyncStatus('syncing');
+    // Send anything still waiting before reading, so a pull can't overwrite it.
+    const delivered = await flushPending();
     const [i, a, q, mi, ml] = await Promise.all([
       remoteFetchPath('issues'), remoteFetchPath('arrowJobs'), remoteFetchPath('qcEntries'),
       remoteFetchPath('maintenanceItems'), remoteFetchPath('maintenanceLogs')
     ]);
+    if (!delivered || pendingOps.length) {
+      setSyncStatus('pending');
+      if (showFailToast) showToast(`${pendingOps.length} change${pendingOps.length===1?'':'s'} still waiting to send`);
+      return;
+    }
     const newIssues = objToArr(i), newArrow = objToArr(a), newQc = objToArr(q);
     const newMaintItems = objToArr(mi), newMaintLogs = objToArr(ml);
     const before = {issues, arrowJobs, qcEntries, maintenanceItems, maintenanceLogs};
@@ -498,6 +542,9 @@ function chipBadge(dept){
 function renderChips(){
   const wrap = document.getElementById('deptNav');
   const overviewHTML = `<button class="dept-chip pinned${activeDept==='overview'?' active':''}" data-dept="overview">Overview</button>`;
+  const lastMon = addDaysISO(currentWeekMonday(), -7);
+  const wkCount = weeklyIssuesFor(lastMon, addDaysISO(lastMon, 4)).length;
+  const weeklyHTML = `<button class="dept-chip pinned${activeDept==='weekly'?' active':''}" data-dept="weekly">Weekly${wkCount>0?`<span class="chip-badge">${wkCount}</span>`:''}</button>`;
   const visibleDepts = DEPARTMENTS.filter(isDeptVisible);
   const chipButton = (d) => {
     const badge = chipBadge(d);
@@ -505,7 +552,7 @@ function renderChips(){
   };
   const deptChips = visibleDepts.filter(d => d.type === 'standard');
   const toolChips = visibleDepts.filter(d => d.type !== 'standard');
-  let html = overviewHTML;
+  let html = overviewHTML + weeklyHTML;
   if (deptChips.length) html += `<div class="chip-group-label">Departments</div>` + deptChips.map(chipButton).join('');
   if (toolChips.length) html += `<div class="chip-group-label">Tools</div>` + toolChips.map(chipButton).join('');
   wrap.innerHTML = html;
@@ -969,12 +1016,13 @@ function myTasksHTML(){
   const sorted = mine.slice().sort((a,b) => daysBetween(todayISO(), nextDueISO(a)) - daysBetween(todayISO(), nextDueISO(b)));
   const rows = sorted.map(item => {
     const daysUntil = daysBetween(todayISO(), nextDueISO(item));
+    const doneToday = maintenanceLogs.some(l => l.itemId === item.id && l.date === todayISO());
     return `
       <div class="my-task-row">
         <span class="my-task-name">${escapeHTML(item.name)}</span>
         <span class="my-task-right">
-          ${dueStatusHTML(daysUntil)}
-          <button class="add-btn action-btn-inline" data-complete-maint-ov="${item.id}">Done</button>
+          ${doneToday ? `<span class="done-today">&check; Done &middot; next ${formatShortDate(nextDueISO(item))}</span>` : `${dueStatusHTML(daysUntil)}
+          <button class="add-btn action-btn-inline" data-complete-maint-ov="${item.id}">Done</button>`}
         </span>
       </div>`;
   }).join('');
@@ -1074,6 +1122,132 @@ function attachOverviewHandlers(){
   });
 }
 
+// ---------- WEEKLY SUMMARY (a completed Mon–Fri, for the Tuesday meeting) ----------
+function mondayOfWeek(iso){
+  const d = parseISO(iso);
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day)); // Sunday belongs to the week just ending
+  return isoOfDate(d);
+}
+function currentWeekMonday(){ return mondayOfWeek(todayISO()); }
+// Left null so it always means "the last finished week" until someone pages away from it.
+let weeklyCursor = null;
+function weeklyStart(){ return weeklyCursor || addDaysISO(currentWeekMonday(), -7); }
+function visibleStandardDepts(){
+  const std = DEPARTMENTS.filter(d => d.type === 'standard');
+  if (FULL_ACCESS_USERS.includes(currentUser) || !PERSON_DEPTS[currentUser]) return std;
+  const allowed = PERSON_DEPTS[currentUser];
+  return std.filter(d => allowed.includes(d.key));
+}
+function formatDayDate(iso){ const d = parseISO(iso); return `${WEEKDAY_NAMES[d.getDay()].slice(0,3)} ${MONTH_SHORT[d.getMonth()]} ${d.getDate()}`; }
+function weeklyIssuesFor(fromISO, toISO){
+  const keys = visibleStandardDepts().map(d => d.key);
+  return issues.filter(i => i.date >= fromISO && i.date <= toISO && keys.includes(i.department))
+    .sort((a,b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.createdAt - b.createdAt));
+}
+function weeklySummaryText(){
+  const mon = weeklyStart(), fri = addDaysISO(mon, 4);
+  const weekIssues = weeklyIssuesFor(mon, fri);
+  const lines = [`Weekly summary — ${formatShortDate(mon)} to ${formatShortDate(fri)}`,
+                 `${weekIssues.length} issue${weekIssues.length === 1 ? '' : 's'}`, ''];
+  visibleStandardDepts().forEach(d => {
+    const rows = weekIssues.filter(i => i.department === d.key);
+    if (!rows.length) return;
+    lines.push(`${d.label.toUpperCase()} (${rows.length})`);
+    rows.forEach(i => {
+      lines.push(`  #${i.projectNumber}  ${i.category} — ${formatDayDate(i.date)}${i.loggedBy ? `, ${i.loggedBy}` : ''}`);
+      if (i.note) lines.push(`      ${i.note}`);
+    });
+    lines.push('');
+  });
+  if (!weekIssues.length) lines.push('No issues logged.');
+  return lines.join('\n');
+}
+function renderWeekly(){
+  const mon = weeklyStart(), fri = addDaysISO(mon, 4);
+  const weekIssues = weeklyIssuesFor(mon, fri);
+  const weekendIssues = weeklyIssuesFor(addDaysISO(mon, 5), addDaysISO(mon, 6));
+  const cur = currentWeekMonday();
+  const tag = mon === cur ? 'This week so far' : mon === addDaysISO(cur, -7) ? 'Last week' : '';
+  const atLatest = mon >= cur;
+
+  const deptSections = visibleStandardDepts().map(d => {
+    const rows = weekIssues.filter(i => i.department === d.key);
+    if (!rows.length) return '';
+    const items = rows.map(i => `
+      <div class="issue-row">
+        <div class="issue-summary">
+          <span class="line-label mono">#${escapeHTML(i.projectNumber)}</span>
+          <span class="line-label">${escapeHTML(i.category)}</span>
+        </div>
+        <div class="issue-detail">${formatDayDate(i.date)}${i.loggedBy ? ` · ${escapeHTML(i.loggedBy)}` : ''}${i.note ? ` · ${escapeHTML(i.note)}` : ''}</div>
+      </div>`).join('');
+    return `<div class="section-title">${escapeHTML(d.label)} — ${rows.length}</div><div class="card">${items}</div>`;
+  }).join('');
+
+  const weekendHTML = weekendIssues.length ? `
+    <div class="section-title">Logged Sat/Sun</div>
+    <div class="card">
+      <div class="muted" style="margin-bottom:6px;">Outside the Mon–Fri window, listed so nothing gets missed.</div>
+      ${weekendIssues.map(i => `
+      <div class="issue-row">
+        <div class="issue-summary">
+          <span class="line-label mono">#${escapeHTML(i.projectNumber)}</span>
+          <span class="line-label">${escapeHTML(i.category)}</span>
+        </div>
+        <div class="issue-detail">${formatDayDate(i.date)}${i.loggedBy ? ` · ${escapeHTML(i.loggedBy)}` : ''}${i.note ? ` · ${escapeHTML(i.note)}` : ''}</div>
+      </div>`).join('')}
+    </div>` : '';
+
+  const qcCount = qcEntries.filter(q => q.date >= mon && q.date <= fri).length;
+  const arrowSent = arrowJobs.filter(j => j.sentDate >= mon && j.sentDate <= fri).length;
+  const arrowBack = arrowJobs.filter(j => j.returnedDate && j.returnedDate >= mon && j.returnedDate <= fri).length;
+  const tasksDone = maintenanceLogs.filter(l => l.date >= mon && l.date <= fri).length;
+
+  return `
+    <div class="card">
+      <div class="nav-row">
+        <button class="nav-btn" id="wkPrev">&lsaquo;</button>
+        <span class="nav-title">${formatShortDate(mon)} &ndash; ${formatShortDate(fri)}</span>
+        <button class="nav-btn" id="wkNext"${atLatest ? ' disabled style="opacity:0.3;"' : ''}>&rsaquo;</button>
+      </div>
+      ${tag ? `<div class="muted" style="text-align:center;">${tag}</div>` : ''}
+      <div class="headline-num mono" style="margin-top:14px;">${weekIssues.length}</div>
+      <div class="headline-sub">issue${weekIssues.length === 1 ? '' : 's'} logged Monday to Friday</div>
+      <button class="add-btn" id="wkCopyBtn" style="margin-top:16px;">Copy for the meeting</button>
+    </div>
+    ${weekIssues.length ? deptSections : `<div class="card"><div class="empty-state">No issues logged that week.</div></div>`}
+    ${weekendHTML}
+    <div class="section-title">Also that week</div>
+    <div class="card">
+      <div class="line-item"><span class="line-label">Items QC'd</span><span class="leader"></span><span class="line-amount mono">${qcCount}</span></div>
+      <div class="line-item"><span class="line-label">Sent to Arrow</span><span class="leader"></span><span class="line-amount mono">${arrowSent}</span></div>
+      <div class="line-item"><span class="line-label">Back from Arrow</span><span class="leader"></span><span class="line-amount mono">${arrowBack}</span></div>
+      <div class="line-item"><span class="line-label">Routine tasks completed</span><span class="leader"></span><span class="line-amount mono">${tasksDone}</span></div>
+    </div>
+  `;
+}
+function attachWeeklyHandlers(){
+  document.getElementById('wkPrev').onclick = () => { weeklyCursor = addDaysISO(weeklyStart(), -7); render(); };
+  const next = document.getElementById('wkNext');
+  if (next) next.onclick = () => {
+    if (weeklyStart() >= currentWeekMonday()) return;
+    weeklyCursor = addDaysISO(weeklyStart(), 7); render();
+  };
+  document.getElementById('wkCopyBtn').onclick = async () => {
+    const text = weeklySummaryText();
+    try { await navigator.clipboard.writeText(text); showToast('Summary copied'); }
+    catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); showToast('Summary copied'); }
+      catch (e2) { showToast("Couldn't copy on this device"); }
+      document.body.removeChild(ta);
+    }
+  };
+}
+
 // ---------- MAINTENANCE (recurring schedule with completion log) ----------
 function markMaintenanceComplete(id){
   const item = maintenanceItems.find(m => m.id === id);
@@ -1111,12 +1285,12 @@ function renderMaintenance(){
             <span class="line-label">${escapeHTML(item.name)}</span>
             <span class="line-note">${item.assignedTo ? `${escapeHTML(item.assignedTo)} · ` : ''}${dueStatusHTML(daysUntil)}</span>
           </button>
-          <button class="add-btn action-btn-inline" data-complete-maint="${item.id}">Mark Complete</button>
+          ${logs.some(l => l.date === todayISO()) ? `<span class="done-today">&check; Done today</span>` : `<button class="add-btn action-btn-inline" data-complete-maint="${item.id}">Mark complete</button>`}
           ${canManage ? `<button class="del-btn" data-del-maint="${item.id}">&times;</button>` : ''}
         </div>
         ${expanded ? `
           <div class="issue-detail">
-            ${scheduleLabel(item)} · Last done: ${lastLog ? `${formatShortDate(lastLog.date)} by ${escapeHTML(lastLog.completedBy || '—')}` : 'never'}
+            ${scheduleLabel(item)} · Next due ${formatShortDate(due)} · Last done: ${lastLog ? `${formatShortDate(lastLog.date)} by ${escapeHTML(lastLog.completedBy || '—')}` : 'never'}
           </div>
           <div class="ov-dept-detail">${historyRows}</div>
         ` : ''}
@@ -1242,13 +1416,14 @@ function render(){
     attachIdentityHandlers();
     return;
   }
-  if (activeDept !== 'overview') {
+  if (activeDept !== 'overview' && activeDept !== 'weekly') {
     const currentDept = DEPARTMENTS.find(d => d.key === activeDept);
     if (!currentDept || !isDeptVisible(currentDept)) { activeDept = firstVisibleDept(); }
   }
   renderChips();
   renderMasthead();
   if (activeDept === 'overview') { content.innerHTML = renderOverview(); attachOverviewHandlers(); return; }
+  if (activeDept === 'weekly') { content.innerHTML = renderWeekly(); attachWeeklyHandlers(); return; }
   const dept = DEPARTMENTS.find(d => d.key === activeDept);
   if (dept.type === 'standard') { content.innerHTML = renderStandardDept(dept); attachStandardHandlers(dept); }
   else if (dept.type === 'arrow') { content.innerHTML = renderArrow(); attachArrowHandlers(); }
@@ -1310,6 +1485,13 @@ async function checkForUpdate(){
 }
 document.getElementById('refreshBtn').onclick = () => { syncPull(true); checkForUpdate(); };
 
+// The app often stays open for days on a phone. Redraw when the date turns over
+// so due dates and "this month" counts don't sit on yesterday's numbers.
+let lastRenderedDay = todayISO();
+function checkDayRollover(){
+  if (todayISO() !== lastRenderedDay) { lastRenderedDay = todayISO(); render(); }
+}
+
 function exportBackup(){
   const payload = { exportedAt: new Date().toISOString(), issues, arrowJobs, qcEntries, maintenanceItems, maintenanceLogs };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -1344,12 +1526,13 @@ if (window.visualViewport) {
   document.getElementById('versionTag').textContent = 'v' + APP_VERSION;
   currentUser = loadIdentity();
   loadLocalCache();
+  loadPending();
   render();
   await syncPull(false);
   checkForUpdate();
   if (isConfigured()) {
-    setInterval(() => syncPull(false), POLL_MS);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) syncPull(false); });
+    setInterval(() => { checkDayRollover(); syncPull(false); }, POLL_MS);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkDayRollover(); syncPull(false); } });
   }
 })();
 </script>
